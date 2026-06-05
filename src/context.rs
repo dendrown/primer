@@ -12,7 +12,7 @@ pub struct Context {
 
 
 impl Context {
-   pub  fn new(arg: &String) -> Result<Context, String> {
+   pub  fn new(arg: &str) -> Result<Context, String> {
         let n: u64 = match arg.parse() {
             Ok(n) if n > 1 => n,
             Ok(_) => {
@@ -22,6 +22,6 @@ impl Context {
                 return Err(e.to_string());
             }
         };
-        Ok(Context{n: n, store: Store::default()})
+        Ok(Context{n, store: Store::default()})
     }
 }
