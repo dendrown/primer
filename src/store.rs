@@ -3,10 +3,12 @@
 ///
 /// Copyright (c) 2026 Dennis Drown
 use std::fs;
-use std::io::{self, BufReader, Read};
+use std::io::{self, BufReader, BufWriter, Read, Write};
+use std::mem::size_of;
 
 const STORE_U64: &str = "primes-u64.dat";
 const STORE_BIG: &str = "primes-big.dat";
+const INT_BYTES: u64 = size_of::<u64>() as u64;
 
 
 #[derive(Debug)]
@@ -25,7 +27,30 @@ impl Default for Store {
 
 
 impl Store {
-    pub fn read_all_int(self) -> Result<Vec<u64>, io::Error> {
+    pub fn new() -> Self {
+    //! Ensures the store files exist, creating them if necessary
+        let store = fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(STORE_U64).expect(STORE_U64);
+        let meta = store.metadata().expect("Bad store");
+
+        // Start out with [2,3] to facilitate +=2 for odd candidates
+        if meta.len() < 2*INT_BYTES {
+            //let _ store.set_len(0);
+            let mut writer = BufWriter::new(store);
+            for &prime in &[2u64, 3u64] {
+                writer.write_all(&prime.to_ne_bytes()).unwrap();
+            }
+        }
+
+        println!("{}: {} primes", STORE_U64, meta.len()/INT_BYTES);
+
+        Self::default()
+    }
+
+
+    pub fn read_all_int(&self) -> Result<Vec<u64>, io::Error> {
     //! Read all prime numbers currently in the Integer store
     //! TODO: Only read up to a requested value for n
         let /*mut*/ store = fs::OpenOptions::new()

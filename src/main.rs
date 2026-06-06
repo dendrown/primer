@@ -26,15 +26,45 @@ fn main() -> ExitCode {
         }
     };
 
-    let n = context.n;
-    println!("U64 store: {}", context.store.int);
-    println!("BIG store: {}", context.store.big);
-    println!("{} PRIME? {}", n, is_prime(n));
+    println!("\nIS {} PRIME? {}", context.n, is_prime(&context));
     ExitCode::SUCCESS
 }
 
 
-fn is_prime(n: u64) -> bool {
-    let bound = n.isqrt();
-    bound > n // FIXME!
+fn is_prime(context: &Context) -> bool {
+    let bound = context.n.isqrt();
+
+    let primes: Vec<u64> = context.store.read_all_int().expect("Store failure");
+
+    // FIXME: Have the store find its own limits
+    let factor_base: u64 = match primes.last() {
+        Some(p) => *p,
+        None => 0
+    };
+
+    // TODO: don't go past where we need from the store
+    for prime in primes {
+        if prime > bound {
+            break;
+        }
+        if context.n.is_multiple_of(prime) {
+            return false;
+        }
+        println!("Checking known {prime}");
+    };
+
+    let mut factor = factor_base + 2;
+    while factor <= bound {
+        println!("Checking {factor}");
+        if context.n.is_multiple_of(factor) {
+            return false;
+        } else {
+            // TODO: async prime check & store
+            println!("..sub-prime? {factor}");
+        }
+
+        factor += 2
+    }
+    true
 }
+

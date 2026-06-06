@@ -22,6 +22,6 @@ impl Context {
                 return Err(e.to_string());
             }
         };
-        Ok(Context{n, store: Store::default()})
+        Ok(Context{n, store: Store::new()})
     }
 }
