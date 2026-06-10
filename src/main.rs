@@ -5,6 +5,7 @@
 use std::env;
 use std::process;
 use std::process::ExitCode;
+use anyhow;
 use nix::Error;
 
 use primer::Context;
@@ -26,45 +27,59 @@ fn main() -> ExitCode {
         }
     };
 
-    println!("\nIS {} PRIME? {}", context.n, is_prime(&context));
+    let is_prime = is_prime(&context).expect("Internal error");
+
+    println!("\nIS {} PRIME? {}", context.n, is_prime);
     ExitCode::SUCCESS
 }
 
 
-fn is_prime(context: &Context) -> bool {
-    let bound = context.n.isqrt();
+fn is_prime(context: &Context) -> Result<bool, anyhow::Error> {
+//! Determines if the given number is prime, sync'ing intermediate primes with the store.
 
-    let primes: Vec<u64> = context.store.read_all_int().expect("Store failure");
+    fn is_multiple(n: u64, bound: u64, primes: &Vec<u64>) -> bool {
+        for prime in primes {
+            if *prime > bound {
+                break;
+            }
+
+            if n.is_multiple_of(*prime) {
+                return true;
+            }
+        };
+        false
+    }
+
+    let bound = context.n.isqrt();
+    let primes: Vec<u64> = context.store.read_all_int()?; // TODO: just pull to bound from the store
+
+    println!("Checks are bounded at {bound}");
+
+    if is_multiple(context.n, bound, &primes) {
+        return Ok(false);
+    }
 
     // FIXME: Have the store find its own limits
     let factor_base: u64 = match primes.last() {
         Some(p) => *p,
         None => 0
     };
-
-    // TODO: don't go past where we need from the store
-    for prime in primes {
-        if prime > bound {
-            break;
-        }
-        if context.n.is_multiple_of(prime) {
-            return false;
-        }
-        println!("Checking known {prime}");
-    };
-
     let mut factor = factor_base + 2;
     while factor <= bound {
-        println!("Checking {factor}");
         if context.n.is_multiple_of(factor) {
-            return false;
+            return Ok(false);
         } else {
-            // TODO: async prime check & store
-            println!("..sub-prime? {factor}");
+            // TODO: async sub-prime check
+            print!("Sub-prime? {factor}...");
+            if !is_multiple(factor, bound, &primes) {
+                println!("Y");
+                context.store.add(factor)?;
+            } else {
+                println!("N");
+            }
         }
-
         factor += 2
     }
-    true
+    Ok(true)
 }
 

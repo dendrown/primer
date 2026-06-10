@@ -37,18 +37,27 @@ impl Store {
 
         // Start out with [2,3] to facilitate +=2 for odd candidates
         if meta.len() < 2*INT_BYTES {
-            //let _ store.set_len(0);
             let mut writer = BufWriter::new(store);
             for &prime in &[2u64, 3u64] {
-                writer.write_all(&prime.to_ne_bytes()).unwrap();
+                writer.write_all(&prime.to_ne_bytes()).expect("Cannot initialize store");
             }
         }
 
         println!("{}: {} primes", STORE_U64, meta.len()/INT_BYTES);
-
         Self::default()
     }
 
+
+    pub fn add(&self, n: u64) -> Result<(), io::Error> {
+    //! Adds a prime (verified by caller) to the store
+    //! TODO: generalize for BigUint
+        let store = fs::OpenOptions::new()
+            .append(true)
+            .open(STORE_U64)?;
+        let mut writer = BufWriter::new(store);
+        writer.write_all(&n.to_ne_bytes())?;
+        Ok(())
+    }
 
     pub fn read_all_int(&self) -> Result<Vec<u64>, io::Error> {
     //! Read all prime numbers currently in the Integer store
