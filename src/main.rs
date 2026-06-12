@@ -4,8 +4,7 @@
 /// Copyright (c) 2026 Dennis Drown
 use std::env;
 use std::process;
-use std::process::ExitCode;
-use anyhow;
+use anyhow::Result;
 use nix::Error;
 
 use primer::Context;
@@ -13,28 +12,26 @@ use primer::Context;
 const EINVAL: i32 = Error::EINVAL as i32;
 
 
-fn main() -> ExitCode {
+#[tokio::main]
+async fn main() -> Result<()> {
 //! Accepts prime candidate as a CLI parameter, checks a store of primes,
 //! adding to the store as it works on the candidate.
     let context: Context = match env::args().nth(1) {
-        Some(arg) => Context::new(&arg).unwrap_or_else(|err: String| {
-            println!("\nError: {err}");
-            process::exit(EINVAL);
-        }),
+        Some(arg) => Context::new(&arg)?,
         None => {
             println!("Usage: primer <number>\n");
             process::exit(EINVAL);
         }
     };
 
-    let is_prime = is_prime(&context).expect("Internal error");
+    let is_prime = is_prime(&context).await?;
 
     println!("\nIS {} PRIME? {}", context.n, is_prime);
-    ExitCode::SUCCESS
+    Ok(())
 }
 
 
-fn is_prime(context: &Context) -> Result<bool, anyhow::Error> {
+async fn is_prime(context: &Context) -> Result<bool> {
 //! Determines if the given number is prime, sync'ing intermediate primes with the store.
 
     fn is_multiple(n: u64, bound: u64, primes: &Vec<u64>) -> bool {
@@ -48,6 +45,18 @@ fn is_prime(context: &Context) -> Result<bool, anyhow::Error> {
             }
         };
         false
+    }
+
+    async fn check_sub_prime(i: u64, primes: &Vec<u64>, context: &Context) -> Result<()> {
+        let bound = i.isqrt();
+        print!("Sub-prime? {i}...");
+        if !is_multiple(i, bound, &primes) {
+            println!("Y");
+            context.store.add(i)?;
+        } else {
+            println!("N");
+        };
+        Ok(())
     }
 
     let bound = context.n.isqrt();
@@ -69,14 +78,7 @@ fn is_prime(context: &Context) -> Result<bool, anyhow::Error> {
         if context.n.is_multiple_of(factor) {
             return Ok(false);
         } else {
-            // TODO: async sub-prime check
-            print!("Sub-prime? {factor}...");
-            if !is_multiple(factor, bound, &primes) {
-                println!("Y");
-                context.store.add(factor)?;
-            } else {
-                println!("N");
-            }
+            check_sub_prime(factor, &primes, context).await?;
         }
         factor += 2
     }
