@@ -19,7 +19,7 @@ async fn main() -> Result<()> {
     let context: Context = match env::args().nth(1) {
         Some(arg) => Context::new(&arg)?,
         None => {
-            println!("Usage: primer <number>\n");
+            eprintln!("Usage: primer <number>\n");
             process::exit(EINVAL);
         }
     };
@@ -85,3 +85,29 @@ async fn is_prime(context: &Context) -> Result<bool> {
     Ok(true)
 }
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_primes() {
+
+        let primes: Vec<u64> = vec![2, 3, 5, 7];
+        check_prime(true, &primes).await;
+    }
+
+    #[tokio::test]
+    async fn test_non_primes() {
+
+        let non_primes: Vec<u64> = vec![4, 9, 55, 21];
+        check_prime(false, &non_primes).await;
+    }
+
+    async fn check_prime(yn: bool, candidates: &Vec<u64>) {
+        for n in candidates.iter() {
+            let context = Context::new(n.to_string().as_str()).unwrap();
+            assert_eq!(yn, is_prime(&context).await.unwrap());
+        }
+    }
+}
